@@ -1,0 +1,23 @@
+{
+  "name": "@nodedos/cli",
+  "version": "0.1.0",
+  "bin": {
+    "nodedos": "dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc --build",
+    "typecheck": "tsc --build --dry"
+  },
+  "dependencies": {
+    "@nodedos/server": "*",
+    "@nodedos/client": "*",
+    "@nodedos/core": "*",
+    "@nodedos/fs-drivers": "*",
+    "@nodedos/shell": "*",
+    "commander": "^12.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "*",
+    "typescript": "*"
+  }
+}

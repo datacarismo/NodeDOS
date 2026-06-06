@@ -1,0 +1,18 @@
+{
+  "name": "@nodedos/client",
+  "version": "0.1.0",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc --build",
+    "typecheck": "tsc --build --dry"
+  },
+  "dependencies": {
+    "@nodedos/protocol": "*",
+    "@nodedos/core": "*"
+  },
+  "devDependencies": {
+    "@types/node": "*",
+    "typescript": "*"
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "composite": true,
+    "outDir": "dist",
+    "rootDir": "src"
+  },
+  "references": [
+    { "path": "../protocol" },
+    { "path": "../core" },
+    { "path": "../fs-drivers" },
+    { "path": "../server" },
+    { "path": "../client" },
+    { "path": "../shell" }
+  ],
+  "include": ["src"]
+}

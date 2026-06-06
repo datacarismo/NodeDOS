@@ -1,0 +1,10 @@
+#!/bin/sh
+# PID 1 — mounts essential filesystems, then hands off to Node.js
+mount -t proc     proc    /proc
+mount -t sysfs    sysfs   /sys
+mount -t devtmpfs devtmpfs /dev
+
+# Bring up loopback so localhost works
+ip link set lo up 2>/dev/null || true
+
+exec /usr/bin/node /nodedos/init.js

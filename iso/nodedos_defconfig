@@ -1,0 +1,43 @@
+# NodeDOS Buildroot defconfig
+# Usage: copy to buildroot/configs/nodedos_defconfig
+#        then: make nodedos_defconfig && make
+
+# Architecture
+BR2_x86_64=y
+BR2_x86_x86_64=y
+
+# Toolchain — use Buildroot's internal glibc toolchain
+BR2_TOOLCHAIN_BUILDROOT_GLIBC=y
+BR2_TOOLCHAIN_BUILDROOT_CXX=y
+
+# No init system — we provide /init ourselves
+BR2_INIT_NONE=y
+
+# Root filesystem overlay — our files (init script, nodedos bundle)
+BR2_ROOTFS_OVERLAY="/home/datacarismo/Documents/Projects/NodeDOS/iso/overlay"
+
+# Build a gzipped CPIO initramfs (loaded by kernel as ramdisk)
+BR2_TARGET_ROOTFS_CPIO=y
+BR2_TARGET_ROOTFS_CPIO_GZIP=y
+
+# Linux kernel — minimal x86_64 config
+BR2_LINUX_KERNEL=y
+BR2_LINUX_KERNEL_DEFCONFIG="x86_64"
+BR2_LINUX_KERNEL_NEEDS_HOST_OPENSSL=y
+
+# BusyBox — provides sh, mount, ip, etc. for /init shell script
+BR2_PACKAGE_BUSYBOX=y
+BR2_PACKAGE_BUSYBOX_CONFIG_FRAGMENT_FILES=""
+
+# iproute2 — for `ip link set lo up` in /init
+BR2_PACKAGE_IPROUTE2=y
+
+# Node.js runtime
+BR2_PACKAGE_NODEJS=y
+BR2_PACKAGE_NODEJS_NPM=n
+
+# Disable things we don't need
+BR2_PACKAGE_PYTHON3=n
+BR2_PACKAGE_PERL=n
+BR2_TARGET_ROOTFS_EXT2=n
+BR2_TARGET_ROOTFS_TAR=n

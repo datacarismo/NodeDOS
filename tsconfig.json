@@ -1,0 +1,12 @@
+{
+  "files": [],
+  "references": [
+    { "path": "packages/protocol" },
+    { "path": "packages/core" },
+    { "path": "packages/fs-drivers" },
+    { "path": "packages/server" },
+    { "path": "packages/client" },
+    { "path": "packages/shell" },
+    { "path": "packages/cli" }
+  ]
+}

@@ -1,0 +1,26 @@
+node_modules
+dist
+.nodedos
+
+# TypeScript build cache
+*.tsbuildinfo
+
+# Build artifacts
+*.iso
+nodedos.iso
+
+# Generated ISO overlay files (produced by iso/build.sh)
+iso/overlay/nodedos/bundle.js
+iso/overlay/nodedos/init.js
+
+# Screenshots / debug images
+*.png
+*.jpg
+*.jpeg
+
+# MemPalace internals
+entities.json
+mempalace.yaml
+
+# Internal planning docs
+nodedos_plan.md
