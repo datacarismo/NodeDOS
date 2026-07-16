@@ -98,6 +98,76 @@ describe("two-node distributed filesystem", () => {
     if (statR.type === "rstat") expect(statR.stat.isDir).toBe(true);
   });
 
+  it("removes a file on B through A", async () => {
+    await testClient.request({
+      type: "twrite",
+      path: "/remote/doomed.txt",
+      offset: 0,
+      data: Buffer.from("bye").toString("base64"),
+    });
+    const rm = await testClient.request({ type: "tremove", path: "/remote/doomed.txt" });
+    expect(rm.type).toBe("rremove");
+
+    const statR = await testClient.request({ type: "tstat", path: "/remote/doomed.txt" });
+    expect(statR.type).toBe("rerror");
+  });
+
+  it("renames a file on B through A", async () => {
+    await testClient.request({
+      type: "twrite",
+      path: "/remote/before.txt",
+      offset: 0,
+      data: Buffer.from("moved").toString("base64"),
+    });
+    const mv = await testClient.request({
+      type: "trename",
+      from: "/remote/before.txt",
+      to: "/remote/after.txt",
+    });
+    expect(mv.type).toBe("rrename");
+
+    const readR = await testClient.request({ type: "tread", path: "/remote/after.txt", offset: 0, count: 5 });
+    expect(readR.type).toBe("rread");
+    if (readR.type === "rread") {
+      expect(Buffer.from(readR.data, "base64").toString()).toBe("moved");
+    }
+    const gone = await testClient.request({ type: "tstat", path: "/remote/before.txt" });
+    expect(gone.type).toBe("rerror");
+  });
+
+  it("rejects rename across mount boundaries with rerror", async () => {
+    await testClient.request({
+      type: "twrite",
+      path: "/stay.txt",
+      offset: 0,
+      data: Buffer.from("here").toString("base64"),
+    });
+    const mv = await testClient.request({
+      type: "trename",
+      from: "/stay.txt",
+      to: "/remote/stay.txt",
+    });
+    expect(mv.type).toBe("rerror");
+    if (mv.type === "rerror") {
+      expect(mv.ename).toMatch(/across mounts/i);
+    }
+  });
+
+  it("truncates a file on B through A", async () => {
+    await testClient.request({
+      type: "twrite",
+      path: "/remote/trunc.txt",
+      offset: 0,
+      data: Buffer.from("123456").toString("base64"),
+    });
+    const tr = await testClient.request({ type: "ttruncate", path: "/remote/trunc.txt", size: 2 });
+    expect(tr.type).toBe("rtruncate");
+
+    const statR = await testClient.request({ type: "tstat", path: "/remote/trunc.txt" });
+    expect(statR.type).toBe("rstat");
+    if (statR.type === "rstat") expect(statR.stat.size).toBe(2);
+  });
+
   it("file written on A is not visible on B's root (namespaces are isolated)", async () => {
     const r = await testClient.request({ type: "treaddir", path: "/" });
     expect(r.type).toBe("rreaddir");

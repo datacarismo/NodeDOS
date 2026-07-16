@@ -9,6 +9,9 @@ function stubDriver(name: string): Driver {
     write: async () => 0,
     readdir: async () => [],
     mkdir: async () => {},
+    remove: async () => {},
+    rename: async () => {},
+    truncate: async () => {},
   };
 }
 

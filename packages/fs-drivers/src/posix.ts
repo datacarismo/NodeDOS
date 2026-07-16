@@ -96,4 +96,24 @@ export class PosixDriver implements Driver {
   async mkdir(path: string): Promise<void> {
     await fs.mkdir(await this.resolve(path));
   }
+
+  async remove(path: string): Promise<void> {
+    const abs = await this.resolve(path);
+    const s = await fs.stat(abs);
+    if (s.isDirectory()) await fs.rmdir(abs);
+    else await fs.unlink(abs);
+  }
+
+  async rename(from: string, to: string): Promise<void> {
+    const absFrom = await this.resolve(from);
+    const absTo = await this.resolve(to);
+    await fs.rename(absFrom, absTo);
+  }
+
+  async truncate(path: string, size: number): Promise<void> {
+    const abs = await this.resolve(path);
+    const s = await fs.stat(abs);
+    if (s.isDirectory()) throw new Error(`Is a directory: ${path}`);
+    await fs.truncate(abs, size);
+  }
 }

@@ -64,6 +64,9 @@ nodedos:/> exit
 | `cat <path>` | Print file contents |
 | `write <path> <content>` | Write content to file |
 | `mkdir <path>` | Create directory |
+| `rm <path>` | Remove file or empty directory |
+| `mv <from> <to>` | Rename/move within one node |
+| `truncate <path> <size>` | Set file size (extends with zeros) |
 | `cd <path>` | Change directory |
 | `pwd` | Print current directory |
 | `server <host:port>` | Switch to a different server |
@@ -78,6 +81,8 @@ nodedos ls      <path>    [--server host:port]
 nodedos cat     <path>    [--server host:port]
 nodedos write   <path> <content>  [--server host:port]
 nodedos mkdir   <path>    [--server host:port]
+nodedos rm      <path>    [--server host:port]
+nodedos mv      <from> <to>       [--server host:port]
 ```
 
 ---
@@ -189,7 +194,7 @@ The protocol uses request/response pairs tagged with a numeric ID so multiple in
 ## Development
 
 ```bash
-npm test           # run all tests (22 tests across 3 suites)
+npm test           # run all tests
 npm run test:watch # watch mode
 npm run typecheck  # type-check without emitting
 npm run build      # compile TypeScript

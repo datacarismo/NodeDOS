@@ -96,4 +96,36 @@ export class MemoryDriver implements Driver {
     if (parent.children.has(name)) throw new Error(`Already exists: ${path}`);
     parent.children.set(name, makeDir());
   }
+
+  async remove(path: string): Promise<void> {
+    const { parent, name } = this.parentAndName(path);
+    const node = parent.children.get(name);
+    if (!node) throw new Error(`No such file or directory: ${path}`);
+    if (node.isDir && node.children.size > 0) throw new Error(`Directory not empty: ${path}`);
+    parent.children.delete(name);
+  }
+
+  async rename(from: string, to: string): Promise<void> {
+    const src = this.parentAndName(from);
+    const node = src.parent.children.get(src.name);
+    if (!node) throw new Error(`No such file or directory: ${from}`);
+    const dst = this.parentAndName(to);
+    src.parent.children.delete(src.name);
+    dst.parent.children.set(dst.name, node);
+    node.mtime = Date.now();
+  }
+
+  async truncate(path: string, size: number): Promise<void> {
+    const node = this.node(path);
+    if (!node) throw new Error(`No such file or directory: ${path}`);
+    if (node.isDir) throw new Error(`Is a directory: ${path}`);
+    if (size <= node.content.length) {
+      node.content = node.content.subarray(0, size);
+    } else {
+      const extended = Buffer.alloc(size);
+      node.content.copy(extended);
+      node.content = extended;
+    }
+    node.mtime = Date.now();
+  }
 }

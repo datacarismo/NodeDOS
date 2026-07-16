@@ -5,6 +5,8 @@ import { lsCommand } from "./commands/ls";
 import { catCommand } from "./commands/cat";
 import { writeCommand } from "./commands/write";
 import { mkdirCommand } from "./commands/mkdir";
+import { rmCommand } from "./commands/rm";
+import { mvCommand } from "./commands/mv";
 import { startShell } from "@nodedos/shell";
 
 const program = new Command();
@@ -25,6 +27,8 @@ program.addCommand(lsCommand);
 program.addCommand(catCommand);
 program.addCommand(writeCommand);
 program.addCommand(mkdirCommand);
+program.addCommand(rmCommand);
+program.addCommand(mvCommand);
 
 program.parseAsync(process.argv).catch((err: Error) => {
   console.error(err.message);

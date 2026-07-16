@@ -42,4 +42,19 @@ export class RemoteDriver implements Driver {
     const r = await this.client.request({ type: "tmkdir", path });
     assertOk(r);
   }
+
+  async remove(path: string): Promise<void> {
+    const r = await this.client.request({ type: "tremove", path });
+    assertOk(r);
+  }
+
+  async rename(from: string, to: string): Promise<void> {
+    const r = await this.client.request({ type: "trename", from, to });
+    assertOk(r);
+  }
+
+  async truncate(path: string, size: number): Promise<void> {
+    const r = await this.client.request({ type: "ttruncate", path, size });
+    assertOk(r);
+  }
 }

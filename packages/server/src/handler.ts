@@ -2,7 +2,10 @@ import { Buffer } from "node:buffer";
 import type { Transport, NodeMessage, TMessage } from "@nodedos/protocol";
 import type { Namespace } from "@nodedos/core";
 
-const T_TYPES = new Set<string>(["tstat", "tread", "twrite", "treaddir", "tmkdir"]);
+const T_TYPES = new Set<string>([
+  "tstat", "tread", "twrite", "treaddir", "tmkdir",
+  "tremove", "trename", "ttruncate",
+]);
 
 function isTMessage(msg: NodeMessage): msg is TMessage {
   return T_TYPES.has(msg.type);
@@ -46,6 +49,28 @@ export async function handleMessage(
         const { driver, relativePath } = ns.resolve(msg.path);
         await driver.mkdir(relativePath);
         transport.send({ type: "rmkdir", tag });
+        break;
+      }
+      case "tremove": {
+        const { driver, relativePath } = ns.resolve(msg.path);
+        await driver.remove(relativePath);
+        transport.send({ type: "rremove", tag });
+        break;
+      }
+      case "trename": {
+        const from = ns.resolve(msg.from);
+        const to = ns.resolve(msg.to);
+        if (from.driver !== to.driver) {
+          throw new Error("Cannot rename across mounts");
+        }
+        await from.driver.rename(from.relativePath, to.relativePath);
+        transport.send({ type: "rrename", tag });
+        break;
+      }
+      case "ttruncate": {
+        const { driver, relativePath } = ns.resolve(msg.path);
+        await driver.truncate(relativePath, msg.size);
+        transport.send({ type: "rtruncate", tag });
         break;
       }
       default: {

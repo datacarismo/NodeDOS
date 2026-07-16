@@ -88,6 +88,30 @@ async function cmdMkdir(path: string, server: string): Promise<void> {
   });
 }
 
+async function cmdRm(path: string, server: string): Promise<void> {
+  await withClient(server, async (client) => {
+    const r = await client.request({ type: "tremove", path });
+    if (r.type === "rerror") { console.error(r.ename); return; }
+    console.log(`Removed ${path}`);
+  });
+}
+
+async function cmdMv(from: string, to: string, server: string): Promise<void> {
+  await withClient(server, async (client) => {
+    const r = await client.request({ type: "trename", from, to });
+    if (r.type === "rerror") { console.error(r.ename); return; }
+    console.log(`Renamed ${from} → ${to}`);
+  });
+}
+
+async function cmdTruncate(path: string, size: number, server: string): Promise<void> {
+  await withClient(server, async (client) => {
+    const r = await client.request({ type: "ttruncate", path, size });
+    if (r.type === "rerror") { console.error(r.ename); return; }
+    console.log(`Truncated ${path} to ${size} bytes`);
+  });
+}
+
 async function cmdCd(
   path: string,
   server: string,
@@ -108,6 +132,9 @@ function printHelp(): void {
   cat <path>              Print file contents
   write <path> <content>  Write content to file
   mkdir <path>            Create directory
+  rm <path>               Remove file or empty directory
+  mv <from> <to>          Rename/move within one node
+  truncate <path> <size>  Set file size (extends with zeros)
   cd <path>               Change directory
   pwd                     Print current directory
   server <host:port>      Change connected server
@@ -116,28 +143,43 @@ function printHelp(): void {
 `);
 }
 
-export async function startShell(initialServer = "localhost:9001"): Promise<void> {
+export interface ShellIO {
+  input?: NodeJS.ReadableStream;
+  output?: NodeJS.WritableStream;
+}
+
+export async function startShell(initialServer = "localhost:9001", io: ShellIO = {}): Promise<void> {
   const state = { cwd: "/", server: initialServer };
+  const input = io.input ?? process.stdin;
+  const output = io.output ?? process.stdout;
 
   const rl = readline.createInterface({
-    input: process.stdin,
-    output: process.stdout,
-    terminal: process.stdin.isTTY,
+    input,
+    output,
+    terminal: "isTTY" in input ? Boolean((input as NodeJS.ReadStream).isTTY) : false,
   });
+
+  // With piped input, EOF can close the interface while a command is still
+  // running; prompting a closed readline throws ERR_USE_AFTER_CLOSE.
+  let closed = false;
+  rl.on("close", () => { closed = true; });
+  const promptAgain = () => {
+    if (closed) return;
+    rl.setPrompt(getPrompt());
+    rl.prompt();
+  };
 
   const getPrompt = () => `nodedos:${state.cwd || "/"}> `;
 
   console.log(`NodeDOS Shell  [server: ${state.server}]`);
   console.log(`Type "help" for available commands.\n`);
 
-  rl.setPrompt(getPrompt());
-  rl.prompt();
+  promptAgain();
 
   for await (const line of rl) {
     const trimmed = line.trim();
     if (!trimmed) {
-      rl.setPrompt(getPrompt());
-      rl.prompt();
+      promptAgain();
       continue;
     }
 
@@ -160,7 +202,6 @@ export async function startShell(initialServer = "localhost:9001"): Promise<void
         case "exit":
         case "quit":
           rl.close();
-          process.emit("SIGTERM");
           return;
 
         case "server":
@@ -206,6 +247,32 @@ export async function startShell(initialServer = "localhost:9001"): Promise<void
           break;
         }
 
+        case "rm": {
+          if (!args[0]) { console.error("Usage: rm <path>"); break; }
+          await cmdRm(resolvePath(state.cwd, args[0]), state.server);
+          break;
+        }
+
+        case "mv": {
+          if (!args[0] || !args[1]) { console.error("Usage: mv <from> <to>"); break; }
+          await cmdMv(
+            resolvePath(state.cwd, args[0]),
+            resolvePath(state.cwd, args[1]),
+            state.server
+          );
+          break;
+        }
+
+        case "truncate": {
+          const size = parseInt(args[1], 10);
+          if (!args[0] || Number.isNaN(size) || size < 0) {
+            console.error("Usage: truncate <path> <size>");
+            break;
+          }
+          await cmdTruncate(resolvePath(state.cwd, args[0]), size, state.server);
+          break;
+        }
+
         default:
           console.error(`Unknown command: "${cmd}". Type "help" for available commands.`);
       }
@@ -213,7 +280,6 @@ export async function startShell(initialServer = "localhost:9001"): Promise<void
       console.error(`Error: ${err instanceof Error ? err.message : String(err)}`);
     }
 
-    rl.setPrompt(getPrompt());
-    rl.prompt();
+    promptAgain();
   }
 }

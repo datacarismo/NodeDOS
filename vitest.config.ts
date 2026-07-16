@@ -9,6 +9,7 @@ export default defineConfig({
       "@nodedos/fs-drivers": path.resolve(__dirname, "packages/fs-drivers/src/index.ts"),
       "@nodedos/server": path.resolve(__dirname, "packages/server/src/index.ts"),
       "@nodedos/client": path.resolve(__dirname, "packages/client/src/index.ts"),
+      "@nodedos/shell": path.resolve(__dirname, "packages/shell/src/index.ts"),
     },
   },
   test: {
