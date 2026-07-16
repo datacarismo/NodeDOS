@@ -7,7 +7,8 @@
   },
   "references": [
     { "path": "../protocol" },
-    { "path": "../core" }
+    { "path": "../core" },
+    { "path": "../client" }
   ],
   "include": ["src"]
 }

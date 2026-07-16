@@ -117,6 +117,28 @@ async function cmdTruncate(path: string, size: number, conn: Conn): Promise<void
   });
 }
 
+async function cmdMount(prefix: string, target: string, conn: Conn): Promise<void> {
+  const [host, portStr] = target.split(":");
+  const port = parseInt(portStr, 10);
+  if (!host || Number.isNaN(port)) {
+    console.error("Usage: mount /prefix host:port");
+    return;
+  }
+  await withClient(conn, async (client) => {
+    const r = await client.request({ type: "tmount", prefix, host, port });
+    if (r.type === "rerror") { console.error(r.ename); return; }
+    console.log(`Mounted ${host}:${port} at ${prefix}`);
+  });
+}
+
+async function cmdUnmount(prefix: string, conn: Conn): Promise<void> {
+  await withClient(conn, async (client) => {
+    const r = await client.request({ type: "tunmount", prefix });
+    if (r.type === "rerror") { console.error(r.ename); return; }
+    console.log(`Unmounted ${prefix}`);
+  });
+}
+
 async function cmdCd(
   path: string,
   conn: Conn,
@@ -140,6 +162,8 @@ function printHelp(): void {
   rm <path>               Remove file or empty directory
   mv <from> <to>          Rename/move within one node
   truncate <path> <size>  Set file size (extends with zeros)
+  mount /prefix host:port Attach a remote node at /prefix
+  unmount /prefix         Detach a remote mount
   cd <path>               Change directory
   pwd                     Print current directory
   server <host:port>      Change connected server
@@ -267,6 +291,18 @@ export async function startShell(initialServer = "localhost:9001", io: ShellIO =
             resolvePath(state.cwd, args[1]),
             state
           );
+          break;
+        }
+
+        case "mount": {
+          if (!args[0] || !args[1]) { console.error("Usage: mount /prefix host:port"); break; }
+          await cmdMount(resolvePath(state.cwd, args[0]), args[1], state);
+          break;
+        }
+
+        case "unmount": {
+          if (!args[0]) { console.error("Usage: unmount /prefix"); break; }
+          await cmdUnmount(resolvePath(state.cwd, args[0]), state);
           break;
         }
 

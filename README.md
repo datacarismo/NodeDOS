@@ -67,6 +67,8 @@ nodedos:/> exit
 | `rm <path>` | Remove file or empty directory |
 | `mv <from> <to>` | Rename/move within one node |
 | `truncate <path> <size>` | Set file size (extends with zeros) |
+| `mount /prefix host:port` | Attach a remote node at `/prefix` |
+| `unmount /prefix` | Detach a remote mount |
 | `cd <path>` | Change directory |
 | `pwd` | Print current directory |
 | `server <host:port>` | Switch to a different server |
@@ -111,6 +113,18 @@ nodedos:/> ls /remote
 The file physically lands on node B's disk at `/tmp/nodeB/hello.txt`.
 
 If node B goes down, operations under `/remote` fail with an error instead of hanging, and node A redials B with exponential backoff — once B is back, the mount works again with no restart.
+
+Mounts can also be attached and detached at runtime from the shell — no server restart needed:
+
+```
+nodedos:/> mount /remote localhost:9002
+Mounted localhost:9002 at /remote
+nodedos:/> ls /remote
+nodedos:/> unmount /remote
+Unmounted /remote
+```
+
+The server performing the mount authenticates to the remote with its own secret, so a shared-secret deployment works transparently.
 
 ---
 
@@ -233,7 +247,6 @@ A server started with `--secret` uses the same secret when connecting to its `--
 ## Known Limitations
 
 - **Plaintext transport** — no TLS; the auth secret and all file data are readable on the wire.
-- **Mount at startup only** — hot-mount/unmount requires a server restart.
 
 ---
 

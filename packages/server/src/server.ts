@@ -1,7 +1,9 @@
 import * as net from "node:net";
 import * as crypto from "node:crypto";
 import { Transport } from "@nodedos/protocol";
+import type { TMountMsg, TUnmountMsg } from "@nodedos/protocol";
 import { Namespace } from "@nodedos/core";
+import { MountManager } from "@nodedos/client";
 import { handleMessage } from "./handler";
 
 export interface ServerOptions {
@@ -19,11 +21,15 @@ function secretsMatch(offered: string, expected: string): boolean {
 export class NodeDOSServer {
   private server: net.Server;
   private sockets = new Set<net.Socket>();
+  private secret?: string;
   readonly namespace: Namespace;
+  readonly mounts: MountManager;
 
   constructor(options: ServerOptions = {}) {
     const secret = options.secret;
+    this.secret = secret;
     this.namespace = new Namespace();
+    this.mounts = new MountManager(this.namespace);
     this.server = net.createServer((socket) => {
       this.sockets.add(socket);
       socket.on("close", () => this.sockets.delete(socket));
@@ -43,6 +49,14 @@ export class NodeDOSServer {
           transport.send({ type: "rerror", tag: msg.tag, ename: "Authentication required" });
           return;
         }
+        if (msg.type === "tmount") {
+          void this.handleMount(transport, msg);
+          return;
+        }
+        if (msg.type === "tunmount") {
+          this.handleUnmount(transport, msg);
+          return;
+        }
         void handleMessage(this.namespace, transport, msg);
       });
       transport.on("error", (err: Error) => {
@@ -50,6 +64,33 @@ export class NodeDOSServer {
         transport.destroy();
       });
     });
+  }
+
+  private async handleMount(transport: Transport, msg: TMountMsg): Promise<void> {
+    try {
+      if (msg.prefix === "/" || !msg.prefix.startsWith("/")) {
+        throw new Error(`Invalid mount prefix: ${msg.prefix}`);
+      }
+      await this.mounts.mountRemote(msg.prefix, msg.host, msg.port, {
+        reconnect: true,
+        requestTimeoutMs: 10_000,
+        secret: msg.secret ?? this.secret,
+      });
+      transport.send({ type: "rmount", tag: msg.tag });
+    } catch (err) {
+      const ename = err instanceof Error ? err.message : String(err);
+      transport.send({ type: "rerror", tag: msg.tag, ename });
+    }
+  }
+
+  private handleUnmount(transport: Transport, msg: TUnmountMsg): void {
+    try {
+      this.mounts.unmountRemote(msg.prefix);
+      transport.send({ type: "runmount", tag: msg.tag });
+    } catch (err) {
+      const ename = err instanceof Error ? err.message : String(err);
+      transport.send({ type: "rerror", tag: msg.tag, ename });
+    }
   }
 
   listen(port: number, host = "0.0.0.0"): Promise<void> {

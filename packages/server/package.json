@@ -9,7 +9,8 @@
   },
   "dependencies": {
     "@nodedos/protocol": "*",
-    "@nodedos/core": "*"
+    "@nodedos/core": "*",
+    "@nodedos/client": "*"
   },
   "devDependencies": {
     "@types/node": "*",
