@@ -24,6 +24,7 @@ if (fs.existsSync(BUNDLE)) {
 
 const PORT     = parseInt(process.env.NODEDOS_PORT  || '9001', 10);
 const FS_ROOT  = process.env.NODEDOS_ROOT || (process.pid === 1 ? '/' : '/tmp/nodedos-root');
+const SECRET   = process.env.NODEDOS_SECRET || undefined;
 
 async function main() {
   process.stdout.write('\x1b[2J\x1b[H'); // clear screen
@@ -49,7 +50,7 @@ async function main() {
   console.log('');
 
   // Start the local NodeDOS server
-  const server = new NodeDOSServer();
+  const server = new NodeDOSServer({ secret: SECRET });
   server.namespace.mount('/', new PosixDriver(FS_ROOT));
 
   try {
@@ -66,7 +67,7 @@ async function main() {
   process.on('SIGINT',  () => shutdown(server));
 
   // Drop into interactive shell
-  await startShell(`localhost:${PORT}`);
+  await startShell(`localhost:${PORT}`, { secret: SECRET });
 
   shutdown(server);
 }

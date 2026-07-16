@@ -14,8 +14,13 @@ export const serverCommand = new Command("server")
     (val: string, prev: string[]) => [...prev, val],
     [] as string[],
   )
-  .action(async (opts: { port: number; root: string; mount: string[] }) => {
-    const server = new NodeDOSServer();
+  .option(
+    "-k, --secret <secret>",
+    "Require clients to authenticate with this shared secret; also used when connecting to mounts (default: NODEDOS_SECRET env)",
+    process.env.NODEDOS_SECRET,
+  )
+  .action(async (opts: { port: number; root: string; mount: string[]; secret?: string }) => {
+    const server = new NodeDOSServer({ secret: opts.secret });
     server.namespace.mount("/", new PosixDriver(opts.root));
 
     for (const spec of opts.mount) {
@@ -26,7 +31,11 @@ export const serverCommand = new Command("server")
       }
       const [, prefix, host, portStr] = match;
       const remotePort = parseInt(portStr, 10);
-      const client = new NodeDOSClient({ reconnect: true, requestTimeoutMs: 10_000 });
+      const client = new NodeDOSClient({
+        reconnect: true,
+        requestTimeoutMs: 10_000,
+        secret: opts.secret,
+      });
       await client.connect(host, remotePort);
       server.namespace.mount(prefix, new RemoteDriver(client));
       console.log(`Mounted ${host}:${remotePort} at ${prefix}`);

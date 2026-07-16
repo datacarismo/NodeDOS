@@ -19,12 +19,17 @@ function resolvePath(cwd: string, input: string): string {
   return normalizePath(cwd + "/" + input);
 }
 
+interface Conn {
+  server: string;
+  secret?: string;
+}
+
 async function withClient<T>(
-  server: string,
+  conn: Conn,
   fn: (client: NodeDOSClient) => Promise<T>
 ): Promise<T> {
-  const [host, portStr] = server.split(":");
-  const client = new NodeDOSClient();
+  const [host, portStr] = conn.server.split(":");
+  const client = new NodeDOSClient({ secret: conn.secret });
   await client.connect(host, parseInt(portStr, 10));
   try {
     return await fn(client);
@@ -33,8 +38,8 @@ async function withClient<T>(
   }
 }
 
-async function cmdLs(path: string, server: string): Promise<void> {
-  await withClient(server, async (client) => {
+async function cmdLs(path: string, conn: Conn): Promise<void> {
+  await withClient(conn, async (client) => {
     const r = await client.request({ type: "treaddir", path });
     if (r.type === "rerror") { console.error(r.ename); return; }
     if (r.type !== "rreaddir") return;
@@ -47,8 +52,8 @@ async function cmdLs(path: string, server: string): Promise<void> {
   });
 }
 
-async function cmdCat(path: string, server: string): Promise<void> {
-  await withClient(server, async (client) => {
+async function cmdCat(path: string, conn: Conn): Promise<void> {
+  await withClient(conn, async (client) => {
     const statR = await client.request({ type: "tstat", path });
     if (statR.type === "rerror") { console.error(statR.ename); return; }
     if (statR.type !== "rstat") return;
@@ -66,8 +71,8 @@ async function cmdCat(path: string, server: string): Promise<void> {
   });
 }
 
-async function cmdWrite(path: string, content: string, server: string): Promise<void> {
-  await withClient(server, async (client) => {
+async function cmdWrite(path: string, content: string, conn: Conn): Promise<void> {
+  await withClient(conn, async (client) => {
     const data = Buffer.from(content, "utf8");
     const r = await client.request({
       type: "twrite",
@@ -80,32 +85,32 @@ async function cmdWrite(path: string, content: string, server: string): Promise<
   });
 }
 
-async function cmdMkdir(path: string, server: string): Promise<void> {
-  await withClient(server, async (client) => {
+async function cmdMkdir(path: string, conn: Conn): Promise<void> {
+  await withClient(conn, async (client) => {
     const r = await client.request({ type: "tmkdir", path });
     if (r.type === "rerror") { console.error(r.ename); return; }
     console.log(`Created ${path}`);
   });
 }
 
-async function cmdRm(path: string, server: string): Promise<void> {
-  await withClient(server, async (client) => {
+async function cmdRm(path: string, conn: Conn): Promise<void> {
+  await withClient(conn, async (client) => {
     const r = await client.request({ type: "tremove", path });
     if (r.type === "rerror") { console.error(r.ename); return; }
     console.log(`Removed ${path}`);
   });
 }
 
-async function cmdMv(from: string, to: string, server: string): Promise<void> {
-  await withClient(server, async (client) => {
+async function cmdMv(from: string, to: string, conn: Conn): Promise<void> {
+  await withClient(conn, async (client) => {
     const r = await client.request({ type: "trename", from, to });
     if (r.type === "rerror") { console.error(r.ename); return; }
     console.log(`Renamed ${from} → ${to}`);
   });
 }
 
-async function cmdTruncate(path: string, size: number, server: string): Promise<void> {
-  await withClient(server, async (client) => {
+async function cmdTruncate(path: string, size: number, conn: Conn): Promise<void> {
+  await withClient(conn, async (client) => {
     const r = await client.request({ type: "ttruncate", path, size });
     if (r.type === "rerror") { console.error(r.ename); return; }
     console.log(`Truncated ${path} to ${size} bytes`);
@@ -114,10 +119,10 @@ async function cmdTruncate(path: string, size: number, server: string): Promise<
 
 async function cmdCd(
   path: string,
-  server: string,
+  conn: Conn,
   state: { cwd: string }
 ): Promise<void> {
-  await withClient(server, async (client) => {
+  await withClient(conn, async (client) => {
     const r = await client.request({ type: "tstat", path });
     if (r.type === "rerror") { console.error(r.ename); return; }
     if (r.type !== "rstat") return;
@@ -146,10 +151,12 @@ function printHelp(): void {
 export interface ShellIO {
   input?: NodeJS.ReadableStream;
   output?: NodeJS.WritableStream;
+  /** Shared secret used to authenticate to servers. */
+  secret?: string;
 }
 
 export async function startShell(initialServer = "localhost:9001", io: ShellIO = {}): Promise<void> {
-  const state = { cwd: "/", server: initialServer };
+  const state = { cwd: "/", server: initialServer, secret: io.secret };
   const input = io.input ?? process.stdin;
   const output = io.output ?? process.stdout;
 
@@ -212,19 +219,19 @@ export async function startShell(initialServer = "localhost:9001", io: ShellIO =
 
         case "cd": {
           const target = args[0] ? resolvePath(state.cwd, args[0]) : "/";
-          await cmdCd(target, state.server, state);
+          await cmdCd(target, state, state);
           break;
         }
 
         case "ls": {
           const target = args[0] ? resolvePath(state.cwd, args[0]) : state.cwd;
-          await cmdLs(target, state.server);
+          await cmdLs(target, state);
           break;
         }
 
         case "cat": {
           if (!args[0]) { console.error("Usage: cat <path>"); break; }
-          await cmdCat(resolvePath(state.cwd, args[0]), state.server);
+          await cmdCat(resolvePath(state.cwd, args[0]), state);
           break;
         }
 
@@ -236,20 +243,20 @@ export async function startShell(initialServer = "localhost:9001", io: ShellIO =
           await cmdWrite(
             resolvePath(state.cwd, args[0]),
             args.slice(1).join(" "),
-            state.server
+            state
           );
           break;
         }
 
         case "mkdir": {
           if (!args[0]) { console.error("Usage: mkdir <path>"); break; }
-          await cmdMkdir(resolvePath(state.cwd, args[0]), state.server);
+          await cmdMkdir(resolvePath(state.cwd, args[0]), state);
           break;
         }
 
         case "rm": {
           if (!args[0]) { console.error("Usage: rm <path>"); break; }
-          await cmdRm(resolvePath(state.cwd, args[0]), state.server);
+          await cmdRm(resolvePath(state.cwd, args[0]), state);
           break;
         }
 
@@ -258,7 +265,7 @@ export async function startShell(initialServer = "localhost:9001", io: ShellIO =
           await cmdMv(
             resolvePath(state.cwd, args[0]),
             resolvePath(state.cwd, args[1]),
-            state.server
+            state
           );
           break;
         }
@@ -269,7 +276,7 @@ export async function startShell(initialServer = "localhost:9001", io: ShellIO =
             console.error("Usage: truncate <path> <size>");
             break;
           }
-          await cmdTruncate(resolvePath(state.cwd, args[0]), size, state.server);
+          await cmdTruncate(resolvePath(state.cwd, args[0]), size, state);
           break;
         }
 

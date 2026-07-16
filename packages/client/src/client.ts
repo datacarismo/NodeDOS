@@ -17,6 +17,8 @@ export interface ClientOptions {
   reconnectBaseMs?: number;
   /** Backoff ceiling in ms. Default: 30000. */
   reconnectMaxMs?: number;
+  /** Shared secret sent in a tauth handshake before any other request (also after reconnects). */
+  secret?: string;
 }
 
 // Distributive conditional — must be a generic type parameter in the check position
@@ -54,9 +56,24 @@ export class NodeDOSClient {
     return new Promise((resolve, reject) => {
       const socket = net.createConnection({ host: this.host, port: this.port });
       socket.once("connect", () => {
-        this.connected = true;
         this.backoffMs = this.options.reconnectBaseMs ?? 500;
-        resolve();
+        if (this.options.secret === undefined) {
+          this.connected = true;
+          resolve();
+          return;
+        }
+        // Authenticate before marking the connection usable so no
+        // filesystem request can race the handshake.
+        this.authenticate(transport).then(
+          () => {
+            this.connected = true;
+            resolve();
+          },
+          (err: Error) => {
+            transport.destroy();
+            reject(err);
+          },
+        );
       });
       socket.once("error", reject);
       const transport = new Transport(socket);
@@ -81,6 +98,21 @@ export class NodeDOSClient {
         this.pending.clear();
         this.scheduleReconnect();
       });
+    });
+  }
+
+  private authenticate(transport: Transport): Promise<void> {
+    return new Promise<void>((resolve, reject) => {
+      const tag = ++this.tagCounter;
+      this.pending.set(tag, {
+        resolve: (r: RMessage) => {
+          if (r.type === "rauth") resolve();
+          else if (r.type === "rerror") reject(new Error(r.ename));
+          else reject(new Error(`Unexpected: ${r.type}`));
+        },
+        reject,
+      });
+      transport.send({ type: "tauth", tag, secret: this.options.secret! });
     });
   }
 

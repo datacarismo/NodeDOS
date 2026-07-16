@@ -7,6 +7,7 @@ export interface Stat {
 }
 
 // T-messages: client → server requests
+export interface TAuthMsg    { type: "tauth";     tag: number; secret: string }
 export interface TStatMsg    { type: "tstat";     tag: number; path: string }
 export interface TReadMsg    { type: "tread";     tag: number; path: string; offset: number; count: number }
 export interface TWriteMsg   { type: "twrite";    tag: number; path: string; offset: number; data: string }
@@ -17,6 +18,7 @@ export interface TRenameMsg  { type: "trename";   tag: number; from: string; to:
 export interface TTruncateMsg{ type: "ttruncate"; tag: number; path: string; size: number }
 
 // R-messages: server → client responses
+export interface RAuthMsg    { type: "rauth";     tag: number }
 export interface RStatMsg    { type: "rstat";     tag: number; stat: Stat }
 export interface RReadMsg    { type: "rread";     tag: number; data: string }
 export interface RWriteMsg   { type: "rwrite";    tag: number; count: number }
@@ -28,9 +30,11 @@ export interface RTruncateMsg{ type: "rtruncate"; tag: number }
 export interface RErrorMsg   { type: "rerror";    tag: number; ename: string }
 
 export type TMessage =
+  | TAuthMsg
   | TStatMsg | TReadMsg | TWriteMsg | TReaddirMsg | TMkdirMsg
   | TRemoveMsg | TRenameMsg | TTruncateMsg;
 export type RMessage =
+  | RAuthMsg
   | RStatMsg | RReadMsg | RWriteMsg | RReaddirMsg | RMkdirMsg
   | RRemoveMsg | RRenameMsg | RTruncateMsg | RErrorMsg;
 export type NodeMessage = TMessage | RMessage;

@@ -18,8 +18,9 @@ program
   .description("Distributed filesystem operating system inspired by Plan 9")
   .version("0.1.0")
   .option("-s, --server <host:port>", "Server address for interactive shell", "localhost:9001")
-  .action(async (opts: { server: string }) => {
-    await startShell(opts.server);
+  .option("-k, --secret <secret>", "Shared secret (default: NODEDOS_SECRET env)", process.env.NODEDOS_SECRET)
+  .action(async (opts: { server: string; secret?: string }) => {
+    await startShell(opts.server, { secret: opts.secret });
   });
 
 program.addCommand(serverCommand);

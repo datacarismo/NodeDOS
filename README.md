@@ -207,9 +207,32 @@ Test coverage:
 
 ---
 
+## Authentication
+
+Start a server with a shared secret and every client must authenticate before any other request is served:
+
+```bash
+nodedos server --port 9001 --root /tmp/mynode --secret hunter2
+nodedos ls / --server localhost:9001 --secret hunter2
+```
+
+All commands also read the `NODEDOS_SECRET` environment variable, so a cluster can share one secret without repeating `--secret`:
+
+```bash
+export NODEDOS_SECRET=hunter2
+nodedos server --port 9001 --root /tmp/nodeA --mount /remote=localhost:9002
+nodedos   # interactive shell, authenticates automatically
+```
+
+A server started with `--secret` uses the same secret when connecting to its `--mount` targets, so all nodes in a deployment are expected to share one secret. Without `--secret`, behavior is unchanged: no authentication is required.
+
+> **Note:** the secret travels in plaintext over TCP. This stops drive-by access on a trusted network; it is not protection against an eavesdropper. Do not expose NodeDOS ports to untrusted networks.
+
+---
+
 ## Known Limitations
 
-- **No authentication** — any client that can reach the TCP port has full read/write access.
+- **Plaintext transport** — no TLS; the auth secret and all file data are readable on the wire.
 - **Mount at startup only** — hot-mount/unmount requires a server restart.
 
 ---

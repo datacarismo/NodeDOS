@@ -8,9 +8,10 @@ export const catCommand = new Command("cat")
   .description("Print file contents from a NodeDOS server")
   .argument("<path>", "Remote path to read")
   .option("-s, --server <host:port>", "Server address", "localhost:9001")
-  .action(async (remotePath: string, opts: { server: string }) => {
+  .option("-k, --secret <secret>", "Shared secret (default: NODEDOS_SECRET env)", process.env.NODEDOS_SECRET)
+  .action(async (remotePath: string, opts: { server: string; secret?: string }) => {
     const [host, portStr] = opts.server.split(":");
-    const client = new NodeDOSClient();
+    const client = new NodeDOSClient({ secret: opts.secret });
     await client.connect(host, parseInt(portStr, 10));
     try {
       const statR = await client.request({ type: "tstat", path: remotePath });
