@@ -105,6 +105,8 @@ nodedos:/> ls /remote
 
 The file physically lands on node B's disk at `/tmp/nodeB/hello.txt`.
 
+If node B goes down, operations under `/remote` fail with an error instead of hanging, and node A redials B with exponential backoff — once B is back, the mount works again with no restart.
+
 ---
 
 ## Bootable ISO
@@ -202,7 +204,6 @@ Test coverage:
 
 ## Known Limitations
 
-- **No reconnect** — if a mounted remote node restarts, the mount breaks until the local server is restarted.
 - **No authentication** — any client that can reach the TCP port has full read/write access.
 - **Mount at startup only** — hot-mount/unmount requires a server restart.
 

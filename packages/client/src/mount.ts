@@ -1,5 +1,5 @@
 import { Namespace } from "@nodedos/core";
-import { NodeDOSClient } from "./client";
+import { NodeDOSClient, type ClientOptions } from "./client";
 import { RemoteDriver } from "./remote-driver";
 
 export class MountManager {
@@ -10,8 +10,13 @@ export class MountManager {
     this.namespace = ns ?? new Namespace();
   }
 
-  async mountRemote(prefix: string, host: string, port: number): Promise<void> {
-    const client = new NodeDOSClient();
+  async mountRemote(
+    prefix: string,
+    host: string,
+    port: number,
+    options: ClientOptions = { reconnect: true },
+  ): Promise<void> {
+    const client = new NodeDOSClient(options);
     await client.connect(host, port);
     this.clients.set(prefix, client);
     this.namespace.mount(prefix, new RemoteDriver(client));

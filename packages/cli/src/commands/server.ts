@@ -26,7 +26,7 @@ export const serverCommand = new Command("server")
       }
       const [, prefix, host, portStr] = match;
       const remotePort = parseInt(portStr, 10);
-      const client = new NodeDOSClient();
+      const client = new NodeDOSClient({ reconnect: true, requestTimeoutMs: 10_000 });
       await client.connect(host, remotePort);
       server.namespace.mount(prefix, new RemoteDriver(client));
       console.log(`Mounted ${host}:${remotePort} at ${prefix}`);

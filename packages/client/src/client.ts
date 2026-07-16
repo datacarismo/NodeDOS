@@ -5,6 +5,18 @@ import type { NodeMessage, TMessage, RMessage } from "@nodedos/protocol";
 interface Pending {
   resolve: (msg: RMessage) => void;
   reject: (err: Error) => void;
+  timer?: NodeJS.Timeout;
+}
+
+export interface ClientOptions {
+  /** Reject a request if no response arrives within this many ms. Default: no timeout. */
+  requestTimeoutMs?: number;
+  /** Automatically redial with exponential backoff when the connection drops. Default: false. */
+  reconnect?: boolean;
+  /** First reconnect delay in ms. Default: 500. */
+  reconnectBaseMs?: number;
+  /** Backoff ceiling in ms. Default: 30000. */
+  reconnectMaxMs?: number;
 }
 
 // Distributive conditional — must be a generic type parameter in the check position
@@ -13,40 +25,106 @@ type DistributiveOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K>
 type TPayload = DistributiveOmit<TMessage, "tag">;
 
 export class NodeDOSClient {
-  private transport!: Transport;
+  private transport: Transport | null = null;
   private pending = new Map<number, Pending>();
   private tagCounter = 0;
+  private host = "";
+  private port = 0;
+  private connected = false;
+  private closed = false; // set by disconnect(); stops the reconnect loop
+  private reconnectTimer: NodeJS.Timeout | null = null;
+  private backoffMs: number;
+
+  constructor(private options: ClientOptions = {}) {
+    this.backoffMs = options.reconnectBaseMs ?? 500;
+  }
 
   connect(host: string, port: number): Promise<void> {
+    this.host = host;
+    this.port = port;
+    this.closed = false;
+    return this.dial();
+  }
+
+  isConnected(): boolean {
+    return this.connected;
+  }
+
+  private dial(): Promise<void> {
     return new Promise((resolve, reject) => {
-      const socket = net.createConnection({ host, port });
-      socket.once("connect", () => resolve());
+      const socket = net.createConnection({ host: this.host, port: this.port });
+      socket.once("connect", () => {
+        this.connected = true;
+        this.backoffMs = this.options.reconnectBaseMs ?? 500;
+        resolve();
+      });
       socket.once("error", reject);
-      this.transport = new Transport(socket);
-      this.transport.on("message", (msg: NodeMessage) => {
+      const transport = new Transport(socket);
+      this.transport = transport;
+      transport.on("message", (msg: NodeMessage) => {
         const r = msg as RMessage;
         const p = this.pending.get(r.tag);
         if (p) {
           this.pending.delete(r.tag);
+          if (p.timer) clearTimeout(p.timer);
           p.resolve(r);
         }
       });
-      this.transport.on("close", () => {
-        for (const { reject: r } of this.pending.values()) r(new Error("Connection closed"));
+      // Swallow transport-level errors; the socket's "close" always follows.
+      transport.on("error", () => {});
+      transport.on("close", () => {
+        this.connected = false;
+        for (const p of this.pending.values()) {
+          if (p.timer) clearTimeout(p.timer);
+          p.reject(new Error("Connection closed"));
+        }
         this.pending.clear();
+        this.scheduleReconnect();
       });
     });
   }
 
+  private scheduleReconnect(): void {
+    if (!this.options.reconnect || this.closed || this.reconnectTimer) return;
+    const delay = this.backoffMs;
+    this.backoffMs = Math.min(this.backoffMs * 2, this.options.reconnectMaxMs ?? 30000);
+    this.reconnectTimer = setTimeout(() => {
+      this.reconnectTimer = null;
+      if (this.closed) return;
+      // A failed dial fires the transport's "close", which schedules the next attempt.
+      this.dial().catch(() => {});
+    }, delay);
+    this.reconnectTimer.unref?.();
+  }
+
   request(msg: TPayload): Promise<RMessage> {
     return new Promise((resolve, reject) => {
+      if (!this.connected || !this.transport) {
+        reject(new Error(`Not connected to ${this.host}:${this.port}`));
+        return;
+      }
       const tag = ++this.tagCounter;
-      this.pending.set(tag, { resolve, reject });
+      let timer: NodeJS.Timeout | undefined;
+      const timeoutMs = this.options.requestTimeoutMs;
+      if (timeoutMs !== undefined) {
+        timer = setTimeout(() => {
+          this.pending.delete(tag);
+          reject(new Error(`Request timed out after ${timeoutMs}ms`));
+        }, timeoutMs);
+        timer.unref?.();
+      }
+      this.pending.set(tag, { resolve, reject, timer });
       this.transport.send({ ...msg, tag } as NodeMessage);
     });
   }
 
   disconnect(): void {
-    this.transport.destroy();
+    this.closed = true;
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
+    this.connected = false;
+    this.transport?.destroy();
   }
 }

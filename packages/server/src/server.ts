@@ -5,11 +5,14 @@ import { handleMessage } from "./handler";
 
 export class NodeDOSServer {
   private server: net.Server;
+  private sockets = new Set<net.Socket>();
   readonly namespace: Namespace;
 
   constructor() {
     this.namespace = new Namespace();
     this.server = net.createServer((socket) => {
+      this.sockets.add(socket);
+      socket.on("close", () => this.sockets.delete(socket));
       const transport = new Transport(socket);
       transport.on("message", (msg) => {
         void handleMessage(this.namespace, transport, msg);
@@ -29,6 +32,10 @@ export class NodeDOSServer {
 
   close(): Promise<void> {
     return new Promise((resolve, reject) => {
+      // Sever live connections so close() resolves promptly instead of
+      // waiting for every client to hang up.
+      for (const socket of this.sockets) socket.destroy();
+      this.sockets.clear();
       this.server.close((err) => (err ? reject(err) : resolve()));
     });
   }

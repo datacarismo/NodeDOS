@@ -9,6 +9,9 @@ import { startShell } from "@nodedos/shell";
 
 const program = new Command();
 program
+  // Without this, the root -s/--server option captures the flag even when
+  // it appears after a subcommand, and the subcommand only sees its default.
+  .enablePositionalOptions()
   .name("nodedos")
   .description("Distributed filesystem operating system inspired by Plan 9")
   .version("0.1.0")
