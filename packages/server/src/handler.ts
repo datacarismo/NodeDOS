@@ -11,12 +11,17 @@ function isTMessage(msg: NodeMessage): msg is TMessage {
   return T_TYPES.has(msg.type);
 }
 
+export interface HandleOutcome {
+  ok: boolean;
+  error?: string;
+}
+
 export async function handleMessage(
   ns: Namespace,
   transport: Transport,
   msg: NodeMessage,
-): Promise<void> {
-  if (!isTMessage(msg)) return;
+): Promise<HandleOutcome> {
+  if (!isTMessage(msg)) return { ok: false, error: "not a request" };
   const { tag } = msg;
   try {
     switch (msg.type) {
@@ -75,12 +80,15 @@ export async function handleMessage(
       }
       default: {
         const unknownType = (msg as { type: string }).type;
-        transport.send({ type: "rerror", tag, ename: `Unknown message type: ${unknownType}` });
-        break;
+        const ename = `Unknown message type: ${unknownType}`;
+        transport.send({ type: "rerror", tag, ename });
+        return { ok: false, error: ename };
       }
     }
+    return { ok: true };
   } catch (err) {
     const ename = err instanceof Error ? err.message : String(err);
     transport.send({ type: "rerror", tag, ename });
+    return { ok: false, error: ename };
   }
 }

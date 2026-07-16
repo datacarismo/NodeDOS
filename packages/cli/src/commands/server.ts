@@ -1,5 +1,6 @@
 import { Command } from "commander";
 import { NodeDOSServer } from "@nodedos/server";
+import type { RequestLogEvent, MountEvent } from "@nodedos/server";
 import { PosixDriver } from "@nodedos/fs-drivers";
 
 export const serverCommand = new Command("server")
@@ -17,9 +18,21 @@ export const serverCommand = new Command("server")
     "Require clients to authenticate with this shared secret; also used when connecting to mounts (default: NODEDOS_SECRET env)",
     process.env.NODEDOS_SECRET,
   )
-  .action(async (opts: { port: number; root: string; mount: string[]; secret?: string }) => {
+  .option("-v, --verbose", "Log every request and mount state change to stderr")
+  .action(async (opts: { port: number; root: string; mount: string[]; secret?: string; verbose?: boolean }) => {
     const server = new NodeDOSServer({ secret: opts.secret });
     server.namespace.mount("/", new PosixDriver(opts.root));
+
+    if (opts.verbose) {
+      server.on("request", (e: RequestLogEvent) => {
+        const target = e.path ? ` ${e.path}` : "";
+        const status = e.ok ? "ok" : `ERR ${e.error}`;
+        process.stderr.write(`[req] ${e.type}${target} ${e.ms.toFixed(1)}ms ${status}\n`);
+      });
+      server.on("mount", (e: MountEvent) => {
+        process.stderr.write(`[mount ${e.prefix}] ${e.state}\n`);
+      });
+    }
 
     for (const spec of opts.mount) {
       const match = spec.match(/^([^=]+)=([^:]+):(\d+)$/);

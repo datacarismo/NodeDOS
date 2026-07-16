@@ -1,4 +1,5 @@
 import * as net from "node:net";
+import { EventEmitter } from "node:events";
 import { Transport } from "@nodedos/protocol";
 import type { NodeMessage, TMessage, RMessage } from "@nodedos/protocol";
 
@@ -26,7 +27,11 @@ export interface ClientOptions {
 type DistributiveOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K> : never;
 type TPayload = DistributiveOmit<TMessage, "tag">;
 
-export class NodeDOSClient {
+/**
+ * Emits: "connected" (after any handshake), "disconnected" (an established
+ * connection dropped), "reconnecting" ({ delayMs }) when a redial is scheduled.
+ */
+export class NodeDOSClient extends EventEmitter {
   private transport: Transport | null = null;
   private pending = new Map<number, Pending>();
   private tagCounter = 0;
@@ -38,6 +43,7 @@ export class NodeDOSClient {
   private backoffMs: number;
 
   constructor(private options: ClientOptions = {}) {
+    super();
     this.backoffMs = options.reconnectBaseMs ?? 500;
   }
 
@@ -59,6 +65,7 @@ export class NodeDOSClient {
         this.backoffMs = this.options.reconnectBaseMs ?? 500;
         if (this.options.secret === undefined) {
           this.connected = true;
+          this.emit("connected");
           resolve();
           return;
         }
@@ -67,6 +74,7 @@ export class NodeDOSClient {
         this.authenticate(transport).then(
           () => {
             this.connected = true;
+            this.emit("connected");
             resolve();
           },
           (err: Error) => {
@@ -90,12 +98,14 @@ export class NodeDOSClient {
       // Swallow transport-level errors; the socket's "close" always follows.
       transport.on("error", () => {});
       transport.on("close", () => {
+        const wasConnected = this.connected;
         this.connected = false;
         for (const p of this.pending.values()) {
           if (p.timer) clearTimeout(p.timer);
           p.reject(new Error("Connection closed"));
         }
         this.pending.clear();
+        if (wasConnected) this.emit("disconnected");
         this.scheduleReconnect();
       });
     });
@@ -120,6 +130,7 @@ export class NodeDOSClient {
     if (!this.options.reconnect || this.closed || this.reconnectTimer) return;
     const delay = this.backoffMs;
     this.backoffMs = Math.min(this.backoffMs * 2, this.options.reconnectMaxMs ?? 30000);
+    this.emit("reconnecting", { delayMs: delay });
     this.reconnectTimer = setTimeout(() => {
       this.reconnectTimer = null;
       if (this.closed) return;

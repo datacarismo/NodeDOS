@@ -78,7 +78,7 @@ nodedos:/> exit
 ### One-shot CLI commands
 
 ```bash
-nodedos server  --port 9001 --root /tmp/nodeA [--mount /prefix=host:port ...]
+nodedos server  --port 9001 --root /tmp/nodeA [--mount /prefix=host:port ...] [--verbose]
 nodedos ls      <path>    [--server host:port]
 nodedos cat     <path>    [--server host:port]
 nodedos write   <path> <content>  [--server host:port]
@@ -216,8 +216,22 @@ npm run build      # compile TypeScript
 
 Test coverage:
 - **Namespace** — mount/unmount/resolve, prefix shadowing, boundary matching
-- **MemoryDriver** — stat, read, write, readdir, mkdir, error cases
-- **Two-node integration** — real TCP, write through a mount, ls through a mount
+- **Drivers** — MemoryDriver and PosixDriver: stat/read/write/readdir/mkdir/remove/rename/truncate, chroot escape guards
+- **Integration** — real TCP: two-node mounts, reconnect/backoff, auth, hot mount/unmount, piped shell sessions
+- **Hardening** — concurrent clients, interleaved in-flight requests, performance smoke checks
+
+### Observability
+
+`nodedos server --verbose` logs every request (type, path, duration, outcome) and every mount state change to stderr:
+
+```
+[req] twrite /f.txt 2.2ms ok
+[req] tstat /missing.txt 0.3ms ERR ENOENT: no such file or directory
+[mount /remote] disconnected
+[mount /remote] reconnecting
+```
+
+Programmatically, `NodeDOSServer` emits `"request"` and `"mount"` events, and `NodeDOSClient` emits `"connected"`, `"disconnected"`, and `"reconnecting"`.
 
 ---
 
