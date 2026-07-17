@@ -25,7 +25,9 @@ export class PosixDriver implements Driver {
         nodePath.basename(abs),
       );
     }
-    if (real !== rootReal && !real.startsWith(rootReal + nodePath.sep)) {
+    // When root is "/" the boundary is "/" itself, not "//".
+    const boundary = rootReal.endsWith(nodePath.sep) ? rootReal : rootReal + nodePath.sep;
+    if (real !== rootReal && !real.startsWith(boundary)) {
       throw new Error(`Permission denied: path escapes chroot`);
     }
     return abs;

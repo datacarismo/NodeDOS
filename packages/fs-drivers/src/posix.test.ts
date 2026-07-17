@@ -91,4 +91,27 @@ describe("PosixDriver", () => {
     await drv.mkdir("/dir");
     await expect(drv.truncate("/dir", 0)).rejects.toThrow();
   });
+
+  describe("rooted at / (the ISO case)", () => {
+    // With root "/" the escape guard used to check startsWith("//"),
+    // rejecting every subpath — ls / worked but cd /bin did not.
+    it("allows subpaths of a / root", async () => {
+      const rootDrv = new PosixDriver("/");
+      const s = await rootDrv.stat("/tmp");
+      expect(s.isDir).toBe(true);
+    });
+
+    it("allows symlinked directories that stay inside /", async () => {
+      // On merged-/usr systems /bin is a symlink to usr/bin — exactly
+      // what the ISO's BusyBox rootfs has.
+      const rootDrv = new PosixDriver("/");
+      const entries = await rootDrv.readdir("/bin");
+      expect(entries.length).toBeGreaterThan(0);
+    });
+  });
+
+  it("still rejects symlinks escaping a non-/ root", async () => {
+    await fs.symlink("/etc", nodePath.join(root, "sneaky"));
+    await expect(drv.readdir("/sneaky")).rejects.toThrow(/escapes chroot/i);
+  });
 });
