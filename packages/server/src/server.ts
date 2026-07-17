@@ -1,5 +1,4 @@
 import * as net from "node:net";
-import * as crypto from "node:crypto";
 import { EventEmitter } from "node:events";
 import { Transport } from "@nodedos/protocol";
 import type { NodeMessage, TMountMsg, TUnmountMsg } from "@nodedos/protocol";
@@ -7,6 +6,7 @@ import { Namespace } from "@nodedos/core";
 import { MountManager } from "@nodedos/client";
 import type { MountEvent } from "@nodedos/client";
 import { handleMessage } from "./handler";
+import { secretsMatch } from "./auth";
 
 export type { MountEvent };
 
@@ -30,13 +30,6 @@ function pathOf(msg: NodeMessage): string | undefined {
   if ("from" in msg) return `${msg.from} -> ${msg.to}`;
   if ("prefix" in msg) return msg.prefix;
   return undefined;
-}
-
-function secretsMatch(offered: string, expected: string): boolean {
-  // Hash both sides so timingSafeEqual gets equal-length inputs.
-  const a = crypto.createHash("sha256").update(offered).digest();
-  const b = crypto.createHash("sha256").update(expected).digest();
-  return crypto.timingSafeEqual(a, b);
 }
 
 /**
