@@ -38,7 +38,7 @@ async function main() {
     '  ██║ ╚████║╚██████╔╝██████╔╝███████╗██████╔╝╚██████╔╝███████║',
     '  ╚═╝  ╚═══╝ ╚═════╝ ╚═════╝ ╚══════╝╚═════╝  ╚═════╝ ╚══════╝',
     '',
-    '  v0.1.0  —  Plan 9-inspired Distributed Operating System',
+    '  v0.2.0  —  Plan 9-inspired Distributed Operating System',
     '',
   ].join('\n'));
 

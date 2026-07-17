@@ -43,7 +43,7 @@ nodedos
 ```
   ███╗   ██╗ ██████╗ ██████╗ ███████╗██████╗  ██████╗ ███████╗
   ...
-  v0.1.0  —  Plan 9-inspired Distributed Operating System
+  v0.2.0  —  Plan 9-inspired Distributed Operating System
 
 NodeDOS Shell  [server: localhost:9001]
 Type "help" for available commands.
@@ -166,7 +166,7 @@ sudo dd if=nodedos.iso of=/dev/sdX bs=4M status=progress && sync
 ```
   NODEDOS
 
-  v0.1.0  —  Plan 9-inspired Distributed Operating System
+  v0.2.0  —  Plan 9-inspired Distributed Operating System
 
   [init] Running as PID 1
   [init] Root filesystem : /
